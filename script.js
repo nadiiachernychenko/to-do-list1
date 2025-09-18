@@ -1,87 +1,143 @@
+// Импорт Firebase модулей
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+// --- Конфигурация Firebase ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBUkABRfluCvc922-urghYi3zzjifyoUUA",
+  authDomain: "todoappnadiia.firebaseapp.com",
+  databaseURL: "https://todoappnadiia-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "todoappnadiia",
+  storageBucket: "todoappnadiia.appspot.com",
+  messagingSenderId: "427116641173",
+  appId: "1:427116641173:web:babbf492d64238a337549c",
+  measurementId: "G-R494CQMVKX"
+};
+
+// --- Инициализация Firebase ---
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const tasksRef = ref(db, "tasks");
+
+// --- DOM элементы ---
 const inputBox = document.getElementById("input-box");
 const listContainer = document.getElementById("list-container");
+const addBtn = document.getElementById("add-btn");
 
-function addTask() {
-    if (inputBox.value === "") {
-        alert("Please write something");
-    } else {
-        let li = document.createElement("li");
-        li.innerHTML = inputBox.value;
-        listContainer.appendChild(li);
+// --- Массив задач ---
+let tasks = [];
 
-        let span = document.createElement("span");
-        span.innerHTML = "\u00d7";
-        li.appendChild(span);
+// --- Добавление задачи ---
+addBtn.addEventListener("click", () => {
+  if (inputBox.value.trim() === "") return;
+  tasks.push({ text: inputBox.value.trim(), checked: false });
+  inputBox.value = "";
+  saveTasks();
+  renderTasks();
+});
 
-        li.setAttribute("draggable", true); // сделать перетаскиваемым
-    }
-
-    inputBox.value = "";
-    saveData();
-    enableDragAndDrop();
+// --- Сохранение задач в Firebase ---
+function saveTasks() {
+  set(tasksRef, tasks);
 }
 
-listContainer.addEventListener("click", function(e) {
-    if (e.target.tagName === "LI") {
-        e.target.classList.toggle("checked");
-        saveData();
-    } else if (e.target.tagName === "SPAN") {
-        e.target.parentElement.remove();
-        saveData();
-    }
-}, false);
+// --- Синхронизация с Firebase ---
+onValue(tasksRef, snapshot => {
+  tasks = snapshot.val() || [];
+  renderTasks();
+});
 
-function saveData() {
-    localStorage.setItem("data", listContainer.innerHTML);
+// --- Отрисовка задач с плавным обновлением ---
+function renderTasks() {
+  const oldPositions = new Map();
+  listContainer.querySelectorAll("li").forEach(li => {
+    const rect = li.getBoundingClientRect();
+    oldPositions.set(li.dataset.id, rect);
+  });
+
+  listContainer.innerHTML = "";
+  tasks.forEach((task, index) => {
+    const li = document.createElement("li");
+    li.textContent = task.text;
+    li.dataset.id = index; // уникальный ID для FLIP
+    if (task.checked) li.classList.add("checked");
+
+    // Кнопка удаления
+    const span = document.createElement("span");
+    span.textContent = "\u00d7";
+    li.appendChild(span);
+
+    // Клик по задаче
+    li.addEventListener("click", e => {
+      if (e.target.tagName === "LI") {
+        task.checked = !task.checked;
+        saveTasks();
+        renderTasks();
+      }
+    });
+
+    // Удаление задачи
+    span.addEventListener("click", () => {
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    });
+
+    listContainer.appendChild(li);
+  });
+
+  // Плавное перемещение FLIP
+  listContainer.querySelectorAll("li").forEach(li => {
+    const oldRect = oldPositions.get(li.dataset.id);
+    if (!oldRect) return;
+    const newRect = li.getBoundingClientRect();
+    const dx = oldRect.left - newRect.left;
+    const dy = oldRect.top - newRect.top;
+
+    li.style.transform = `translate(${dx}px, ${dy}px)`;
+    requestAnimationFrame(() => {
+      li.style.transition = "transform 0.3s ease";
+      li.style.transform = "";
+    });
+    li.addEventListener("transitionend", () => {
+      li.style.transition = "";
+    }, { once: true });
+  });
+
+  enableDragAndDrop();
 }
 
-function showTask() {
-    listContainer.innerHTML = localStorage.getItem("data");
-    enableDragAndDrop();
-}
-
+// --- Drag & Drop с плавным перемещением ---
 function enableDragAndDrop() {
-    const listItems = listContainer.querySelectorAll("li");
+  const listItems = Array.from(listContainer.querySelectorAll("li"));
+  let dragItem = null;
 
-    listItems.forEach(item => {
-        item.setAttribute("draggable", true);
+  listItems.forEach((item, index) => {
+    item.setAttribute("draggable", true);
 
-        item.addEventListener("dragstart", (e) => {
-            e.dataTransfer.setData("text/plain", null); // для Firefox
-            e.target.classList.add("dragging");
-        });
-
-        item.addEventListener("dragend", (e) => {
-            e.target.classList.remove("dragging");
-            saveData();
-        });
+    item.addEventListener("dragstart", e => {
+      dragItem = item;
+      item.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "");
     });
 
-    listContainer.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        const afterElement = getDragAfterElement(listContainer, e.clientY);
-        const dragging = document.querySelector(".dragging");
-        if (!dragging) return;
-        if (afterElement == null) {
-            listContainer.appendChild(dragging);
-        } else {
-            listContainer.insertBefore(dragging, afterElement);
-        }
+    item.addEventListener("dragend", () => {
+      dragItem.classList.remove("dragging");
+      dragItem = null;
     });
+
+    item.addEventListener("dragover", e => e.preventDefault());
+
+    item.addEventListener("drop", () => {
+      if (!dragItem || dragItem === item) return;
+      const dragIndex = listItems.indexOf(dragItem);
+      const dropIndex = listItems.indexOf(item);
+
+      // swap в массиве
+      [tasks[dragIndex], tasks[dropIndex]] = [tasks[dropIndex], tasks[dragIndex]];
+      saveTasks();
+      renderTasks();
+    });
+  });
 }
-
-function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll("li:not(.dragging)")];
-
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
-        }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-showTask(); // запускаем при загрузке
