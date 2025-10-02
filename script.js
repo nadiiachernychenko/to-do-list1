@@ -1,8 +1,8 @@
-// Импорт Firebase модулей
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-// --- Конфигурация Firebase ---
+
 const firebaseConfig = {
   apiKey: "AIzaSyBUkABRfluCvc922-urghYi3zzjifyoUUA",
   authDomain: "todoappnadiia.firebaseapp.com",
@@ -14,20 +14,20 @@ const firebaseConfig = {
   measurementId: "G-R494CQMVKX"
 };
 
-// --- Инициализация Firebase ---
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const tasksRef = ref(db, "tasks");
 
-// --- DOM элементы ---
+
 const inputBox = document.getElementById("input-box");
 const listContainer = document.getElementById("list-container");
 const addBtn = document.getElementById("add-btn");
 
-// --- Массив задач ---
+
 let tasks = [];
 
-// --- Добавление задачи ---
+
 addBtn.addEventListener("click", () => {
   if (inputBox.value.trim() === "") return;
   tasks.push({ text: inputBox.value.trim(), checked: false });
@@ -36,18 +36,18 @@ addBtn.addEventListener("click", () => {
   renderTasks();
 });
 
-// --- Сохранение задач в Firebase ---
+
 function saveTasks() {
   set(tasksRef, tasks);
 }
 
-// --- Синхронизация с Firebase ---
+
 onValue(tasksRef, snapshot => {
   tasks = snapshot.val() || [];
   renderTasks();
 });
 
-// --- Отрисовка задач с плавным обновлением ---
+
 function renderTasks() {
   const oldPositions = new Map();
   listContainer.querySelectorAll("li").forEach(li => {
@@ -62,12 +62,12 @@ function renderTasks() {
     li.dataset.id = index; // уникальный ID для FLIP
     if (task.checked) li.classList.add("checked");
 
-    // Кнопка удаления
+   
     const span = document.createElement("span");
     span.textContent = "\u00d7";
     li.appendChild(span);
 
-    // Клик по задаче
+    
     li.addEventListener("click", e => {
       if (e.target.tagName === "LI") {
         task.checked = !task.checked;
@@ -76,7 +76,7 @@ function renderTasks() {
       }
     });
 
-    // Удаление задачи
+    
     span.addEventListener("click", () => {
       tasks.splice(index, 1);
       saveTasks();
@@ -86,7 +86,7 @@ function renderTasks() {
     listContainer.appendChild(li);
   });
 
-  // Плавное перемещение FLIP
+  
   listContainer.querySelectorAll("li").forEach(li => {
     const oldRect = oldPositions.get(li.dataset.id);
     if (!oldRect) return;
@@ -107,7 +107,7 @@ function renderTasks() {
   enableDragAndDrop();
 }
 
-// --- Drag & Drop с плавным перемещением ---
+
 function enableDragAndDrop() {
   const listItems = Array.from(listContainer.querySelectorAll("li"));
   let dragItem = null;
@@ -134,7 +134,7 @@ function enableDragAndDrop() {
       const dragIndex = listItems.indexOf(dragItem);
       const dropIndex = listItems.indexOf(item);
 
-      // swap в массиве
+    
       [tasks[dragIndex], tasks[dropIndex]] = [tasks[dropIndex], tasks[dragIndex]];
       saveTasks();
       renderTasks();
