@@ -119,7 +119,7 @@ li.dragging {
   transform: scale(1.05);
 }
 
-/* --- Анимация добавления / обновления --- */
+
 li.updated {
   background-color: #fffbe0;
   animation: slideFade 0.5s ease forwards;
@@ -139,7 +139,7 @@ li.updated {
   }
 }
 
-/* --- Колышение при отметке --- */
+
 li.checked.updated {
   animation: swing 0.4s ease;
 }
